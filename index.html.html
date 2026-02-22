@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMPARTAI - Sistem Keanggotaan (IndexedDB)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #050505; --bg-secondary: #0f0f0f; --bg-card: rgba(18, 18, 18, 0.85);
+            --fg-primary: #fafaf9; --fg-secondary: #a8a29e; --accent-red: #dc2626;
+            --accent-deep: #7f1d1d; --accent-gold: #d97706; --border: rgba(255, 255, 255, 0.08);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg-primary); color: var(--fg-primary); min-height: 100vh; overflow-x: hidden; }
+        .font-display { font-family: 'Playfair Display', serif; }
+        .bg-mesh { position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse 80% 50% at 20% 10%, rgba(127, 29, 29, 0.35), transparent 50%), radial-gradient(ellipse 60% 40% at 80% 90%, rgba(185, 28, 28, 0.2), transparent 50%); }
+        .particles-container { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+        .particle { position: absolute; width: 4px; height: 4px; background: rgba(220, 38, 38, 0.6); border-radius: 50%; animation: float 15s infinite ease-in-out; box-shadow: 0 0 10px rgba(220, 38, 38, 0.3); }
+        @keyframes float { 0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; } }
+        .grid-pattern { position: fixed; inset: 0; z-index: 2; pointer-events: none; opacity: 0.03; background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 60px 60px; }
+        .content-wrapper { position: relative; z-index: 10; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); backdrop-filter: blur(20px); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card:hover { border-color: rgba(220, 38, 38, 0.4); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .btn-primary { background: linear-gradient(135deg, #dc2626, #991b1b); color: white; font-weight: 600; transition: all 0.3s; border: 1px solid rgba(220, 38, 38, 0.5); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 35px -10px rgba(220, 38, 38, 0.5); }
+        .btn-secondary { background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid rgba(255, 255, 255, 0.15); font-weight: 600; transition: all 0.3s; }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+        .input-field { background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s; color: var(--fg-primary); }
+        .input-field:focus { border-color: var(--accent-red); box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15); outline: none; background: rgba(0, 0, 0, 0.6); }
+        .sidebar { background: linear-gradient(180deg, rgba(10, 0, 0, 0.98), rgba(5, 5, 5, 0.98)); border-right: 1px solid var(--border); }
+        .sidebar-link { transition: all 0.3s; border-left: 3px solid transparent; position: relative; overflow: hidden; }
+        .sidebar-link::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(220, 38, 38, 0.2), transparent); transition: width 0.3s; }
+        .sidebar-link:hover::after, .sidebar-link.active::after { width: 100%; }
+        .sidebar-link:hover, .sidebar-link.active { border-left-color: var(--accent-red); }
+        .sidebar-link.active { background: rgba(220, 38, 38, 0.1); }
+        .stat-card { position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent-red), var(--accent-gold)); }
+        .badge { font-size: 0.65rem; padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+        .badge-ketua { background: linear-gradient(135deg, #dc2626, #7f1d1d); color: white; }
+        .badge-sekretaris { background: linear-gradient(135deg, #2563eb, #1e40af); color: white; }
+        .badge-bendahara { background: linear-gradient(135deg, #059669, #047857); color: white; }
+        .badge-wakasekretaris { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
+        .badge-wakabendahara { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .badge-wakabid { background: linear-gradient(135deg, #d97706, #b45309); color: white; }
+        .badge-anggota { background: linear-gradient(135deg, #4b5563, #374151); color: white; }
+        .table-row { transition: all 0.2s; }
+        .table-row:hover { background: rgba(220, 38, 38, 0.05); }
+        .avatar { background: linear-gradient(135deg, #dc2626, #7f1d1d); display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3); position: relative; overflow: hidden; }
+        .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .avatar-gold { background: linear-gradient(135deg, #d97706, #78350f); box-shadow: 0 4px 15px rgba(217, 119, 6, 0.3); }
+        .avatar-blue { background: linear-gradient(135deg, #2563eb, #1e40af); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
+        .avatar-green { background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3); }
+        .progress-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 1s; position: relative; }
+        .modal-overlay { background: rgba(0, 0, 0, 0.92); backdrop-filter: blur(12px); }
+        .modal-content { animation: modalIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .animate-in { animation: fadeInUp 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .stagger-1 { animation-delay: 0.1s; } .stagger-2 { animation-delay: 0.2s; } .stagger-3 { animation-delay: 0.3s; } .stagger-4 { animation-delay: 0.4s; } .stagger-5 { animation-delay: 0.5s; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+        #loadingScreen { position: fixed; inset: 0; z-index: 9999; background: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(220, 38, 38, 0.2); border-top-color: #dc2626; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .org-level-card { transition: all 0.3s ease; cursor: pointer; }
+        .org-level-card:hover { transform: translateY(-3px); border-color: rgba(220, 38, 38, 0.6); }
+        .org-level-card.active { border-color: var(--accent-red); background: rgba(220, 38, 38, 0.15); }
+        .preview-container { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0,0,0,0.2); }
+        .preview-container img { width: 100%; height: auto; max-height: 150px; object-fit: cover; }
+        .preview-container .remove-btn { position: absolute; top: 8px; right: 8px; background: rgba(220, 38, 38, 0.9); color: white; border: none; border-radius: 8px; padding: 4px 8px; cursor: pointer; font-size: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div id="loadingScreen">
+        <div class="spinner mb-4"></div>
+        <p class="text-gray-400" id="loadingText">Memuat Database...</p>
+    </div>
+
+    <div class="bg-mesh"></div>
+    <div class="particles-container" id="particles"></div>
+    <div class="grid-pattern"></div>
+
+    <div class="content-wrapper">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar fixed left-0 top-0 h-full w-72 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
+            <div class="p-6 border-b border-red-950/30">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center shadow-xl relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                        <svg class="w-8 h-8 text-white relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <div>
+                        <h1 class="font-display font-bold text-xl tracking-tight text-white">SIMPARTAI</h1>
+                        <p class="text-xs text-red-300/60 tracking-wide uppercase">IndexedDB Mode</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="p-4 space-y-1 overflow-y-auto h-[calc(100vh-200px)]">
+                <button onclick="showSection('dashboard')" class="sidebar-link active w-full text-left px-4 py-3.5 rounded-r-lg flex items-center gap-4 text-gray-300 hover:text-white" data-section="dashboard">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    <span class="font-medium">Dashboard</span>
+                </button>
+                <button onclick="showSection('anggota')" class="sidebar-link w-full text-left px-4 py-3.5 rounded-r-lg flex items-center gap-4 text-gray-300 hover:text-white" data-section="anggota">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span class="font-medium">Data Anggota</span>
+                </button>
+                <button onclick="showSection('struktur')" class="sidebar-link w-full text-left px-4 py-3.5 rounded-r-lg flex items-center gap-4 text-gray-300 hover:text-white" data-section="struktur">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    <span class="font-medium">Struktur Organisasi</span>
+                </button>
+                <button onclick="showSection('wilayah')" class="sidebar-link w-full text-left px-4 py-3.5 rounded-r-lg flex items-center gap-4 text-gray-300 hover:text-white" data-section="wilayah">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span class="font-medium">Manajemen Wilayah</span>
+                </button>
+                <button onclick="showSection('laporan')" class="sidebar-link w-full text-left px-4 py-3.5 rounded-r-lg flex items-center gap-4 text-gray-300 hover:text-white" data-section="laporan">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span class="font-medium">Laporan</span>
+                </button>
+                <button onclick="showSection('pengaturan')" class="sidebar-link w-full text-left px-4 py-3.5 rounded-r-lg flex items-center gap-4 text-gray-300 hover:text-white" data-section="pengaturan">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span class="font-medium">Pengaturan Data</span>
+                </button>
+            </nav>
+
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-red-950/30 bg-gradient-to-t from-black/80 to-transparent">
+                <div class="flex items-center gap-3 px-2">
+                    <div class="w-11 h-11 rounded-xl avatar text-sm">DB</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-sm truncate">Database Lokal</p>
+                        <p class="text-xs text-green-400">Connected</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile Menu Button -->
+        <button id="mobileMenuBtn" class="lg:hidden fixed top-4 left-4 z-50 p-3 card rounded-xl no-print" aria-label="Toggle Menu">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+
+        <!-- Main Content -->
+        <main class="lg:ml-72 min-h-screen">
+            <!-- Header -->
+            <header class="sticky top-0 z-30 card border-b border-red-950/30 px-6 py-4 no-print backdrop-blur-xl">
+                <div class="flex items-center justify-between">
+                    <div class="lg:hidden w-8"></div>
+                    <div>
+                        <h2 class="font-display text-2xl font-bold tracking-tight" id="pageTitle">Dashboard</h2>
+                        <p class="text-sm text-red-300/60">DPC PDI Perjuangan Kabupaten Karanganyar</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="hidden sm:block text-right pl-4 border-l border-red-950/50">
+                            <p class="text-sm font-medium" id="currentDate"></p>
+                            <p class="text-xs text-gray-500" id="currentTime"></p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <section id="section-dashboard" class="p-6 lg:p-8">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+                    <div class="stat-card card rounded-2xl p-6 animate-in stagger-1 relative overflow-hidden">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="stat-icon red w-12 h-12 rounded-xl flex items-center justify-center">
+                                <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-1">Total Anggota</p>
+                        <p class="font-display text-4xl font-bold text-white"><span class="counter" id="statTotalPengurus">0</span></p>
+                    </div>
+                    
+                    <div class="stat-card card rounded-2xl p-6 animate-in stagger-2 relative overflow-hidden">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="stat-icon blue w-12 h-12 rounded-xl flex items-center justify-center">
+                                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-1">PAC</p>
+                        <p class="font-display text-4xl font-bold text-white"><span class="counter" id="statPAC">0</span></p>
+                    </div>
+                    
+                    <div class="stat-card card rounded-2xl p-6 animate-in stagger-3 relative overflow-hidden">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="stat-icon green w-12 h-12 rounded-xl flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-1">Ranting</p>
+                        <p class="font-display text-4xl font-bold text-white"><span class="counter" id="statRanting">0</span></p>
+                    </div>
+                    
+                    <div class="stat-card card rounded-2xl p-6 animate-in stagger-4 relative overflow-hidden">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="stat-icon amber w-12 h-12 rounded-xl flex items-center justify-center">
+                                <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                        </div>
+                        <p class="text-gray-400 text-sm mb-1">Anak Ranting</p>
+                        <p class="font-display text-4xl font-bold text-white"><span class="counter" id="statAnakRanting">0</span></p>
+                    </div>
+                </div>
+
+                <!-- Pengurus Inti DPC Dashboard -->
+                <div class="card rounded-2xl p-6 mb-6 animate-in stagger-5">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="font-display text-xl font-bold text-white">Pengurus Inti DPC</h3>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" id="dashboardIntiGrid"></div>
+                </div>
+
+                <!-- Wakabid Dashboard -->
+                <div class="grid lg:grid-cols-3 gap-6 lg:gap-8">
+                    <div class="lg:col-span-2 card rounded-2xl p-6 animate-in stagger-5">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="font-display text-xl font-bold text-white">Wakil Ketua Bidang (Wakabid)</h3>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" id="dashboardWakabidGrid"></div>
+                    </div>
+                    <div class="card rounded-2xl p-6 animate-in stagger-5">
+                        <h3 class="font-display text-xl font-bold mb-6 text-white">Distribusi Jabatan</h3>
+                        <div class="space-y-5" id="jabatanChart"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Anggota Section -->
+            <section id="section-anggota" class="p-6 lg:p-8 hidden">
+                <div class="card rounded-2xl p-6 mb-6">
+                    <div class="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
+                        <div class="relative flex-1 max-w-md w-full">
+                            <svg class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" id="searchInput" placeholder="Cari nama atau NIK..." class="input-field w-full pl-12 pr-4 py-3 rounded-xl">
+                        </div>
+                        <div class="flex gap-3 flex-wrap w-full lg:w-auto">
+                            <select id="filterLevel" class="input-field px-4 py-3 rounded-xl flex-1 lg:flex-none">
+                                <option value="">Semua Level</option>
+                                <option value="DPC">DPC</option>
+                                <option value="PAC">PAC</option>
+                                <option value="Ranting">Ranting</option>
+                                <option value="Anak Ranting">Anak Ranting</option>
+                            </select>
+                            <select id="filterJabatan" class="input-field px-4 py-3 rounded-xl flex-1 lg:flex-none">
+                                <option value="">Semua Jabatan</option>
+                                <option value="Ketua">Ketua</option>
+                                <option value="Sekretaris">Sekretaris</option>
+                                <option value="Wakil Sekretaris">Wakil Sekretaris</option>
+                                <option value="Bendahara">Bendahara</option>
+                                <option value="Wakil Bendahara">Wakil Bendahara</option>
+                                <option value="Wakabid">Wakabid</option>
+                            </select>
+                            <button onclick="showAddMemberModal()" class="btn-primary px-5 py-3 rounded-xl flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                Tambah
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-gray-400 text-sm border-b border-red-950/30">
+                                    <th class="pb-4 font-medium">NIK</th>
+                                    <th class="pb-4 font-medium">Nama Lengkap</th>
+                                    <th class="pb-4 font-medium hidden md:table-cell">Level</th>
+                                    <th class="pb-4 font-medium hidden lg:table-cell">Wilayah</th>
+                                    <th class="pb-4 font-medium">Jabatan</th>
+                                    <th class="pb-4 font-medium hidden sm:table-cell">No. HP</th>
+                                    <th class="pb-4 font-medium text-center no-print">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memberTable"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-6 flex items-center justify-between no-print">
+                        <p class="text-sm text-gray-400">Menampilkan <span id="showingCount">0</span> dari <span id="totalCount">0</span> anggota</p>
+                        <div class="flex gap-2" id="pagination"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Struktur Section -->
+            <section id="section-struktur" class="p-6 lg:p-8 hidden">
+                <div class="card rounded-2xl p-6 lg:p-8 mb-6">
+                    <h3 class="font-display text-2xl font-bold mb-8 text-center text-white">Struktur Organisasi DPC PDI Perjuangan Karanganyar</h3>
+                    <div class="text-center mb-10">
+                        <div class="inline-block card rounded-2xl p-8 border-2 border-red-600/20 relative overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-br from-red-600/5 to-transparent"></div>
+                            <div class="relative">
+                                <div class="w-20 h-20 mx-auto rounded-2xl avatar flex items-center justify-center mb-4 shadow-xl">
+                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                </div>
+                                <h4 class="font-display font-bold text-xl text-white">DPC PDI Perjuangan</h4>
+                                <p class="text-red-300/60 text-sm">Kabupaten Karanganyar</p>
+                                <div class="mt-5 text-center">
+                                    <p class="font-bold text-red-400 text-3xl" id="strukturTotal">0</p>
+                                    <p class="text-xs text-gray-400">Total Anggota</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-10">
+                        <h5 class="text-center font-semibold text-amber-400 mb-6 text-lg">Pengurus Inti DPC</h5>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" id="dpcIntiGrid"></div>
+                    </div>
+                    <div class="mb-10">
+                        <h5 class="text-center font-semibold text-amber-400 mb-6 text-lg">Wakil Ketua Bidang</h5>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" id="dpcWakabidGrid"></div>
+                    </div>
+                    <hr class="border-red-900/30 my-10">
+                    <div class="mb-6">
+                        <h5 class="font-semibold text-amber-400 mb-4 text-lg">Struktur PAC</h5>
+                        <p class="text-xs text-gray-500 mb-4">Klik PAC untuk melihat struktur Ranting.</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="pacSelectionGrid"></div>
+                    </div>
+
+                    <div id="rantingSectionContainer" class="hidden mb-6 org-detail-panel">
+                        <div class="flex items-center justify-between mb-4">
+                            <h5 class="font-semibold text-amber-400 text-lg">Struktur Ranting <span id="selectedPacName" class="text-white font-normal text-base"></span></h5>
+                            <button onclick="closeRantingSection()" class="text-xs text-gray-500 hover:text-white">Tutup</button>
+                        </div>
+                        <div id="pacOfficialsContainer" class="mb-6"></div>
+                        <p class="text-xs text-gray-500 mb-4">Klik Ranting untuk melihat struktur Anak Ranting.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="rantingSelectionGrid"></div>
+                    </div>
+
+                    <div id="anakRantingSectionContainer" class="hidden org-detail-panel">
+                        <div class="flex items-center justify-between mb-4">
+                            <h5 class="font-semibold text-amber-400 text-lg">Struktur Anak Ranting <span id="selectedRantingName" class="text-white font-normal text-base"></span></h5>
+                            <button onclick="closeAnakRantingSection()" class="text-xs text-gray-500 hover:text-white">Tutup</button>
+                        </div>
+                        <div id="rantingOfficialsContainer" class="mb-6"></div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="anakRantingSelectionGrid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Wilayah Section -->
+            <section id="section-wilayah" class="p-6 lg:p-8 hidden">
+                <div class="grid lg:grid-cols-3 gap-6">
+                    <div class="card rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="font-display text-lg font-bold text-white">PAC</h3>
+                            <button onclick="showAddWilayahModal('PAC')" class="btn-primary px-4 py-2 rounded-lg text-sm">+ Tambah</button>
+                        </div>
+                        <div class="space-y-2 max-h-96 overflow-y-auto" id="pacListContainer"></div>
+                    </div>
+                    <div class="card rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="font-display text-lg font-bold text-white">Ranting</h3>
+                            <button onclick="showAddWilayahModal('Ranting')" class="btn-primary px-4 py-2 rounded-lg text-sm">+ Tambah</button>
+                        </div>
+                        <div class="mb-4">
+                            <select id="filterRantingPAC" class="input-field w-full px-4 py-2.5 rounded-lg text-sm" onchange="renderRantingList()">
+                                <option value="">Semua PAC</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2 max-h-72 overflow-y-auto" id="rantingListContainer"></div>
+                    </div>
+                    <div class="card rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="font-display text-lg font-bold text-white">Anak Ranting</h3>
+                            <button onclick="showAddWilayahModal('Anak Ranting')" class="btn-primary px-4 py-2 rounded-lg text-sm">+ Tambah</button>
+                        </div>
+                        <div class="mb-4">
+                            <select id="filterAnakRantingRanting" class="input-field w-full px-4 py-2.5 rounded-lg text-sm" onchange="renderAnakRantingList()">
+                                <option value="">Semua Ranting</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2 max-h-72 overflow-y-auto" id="anakRantingListContainer"></div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Laporan Section -->
+            <section id="section-laporan" class="p-6 lg:p-8 hidden">
+                 <div class="card rounded-2xl p-6 mb-6">
+                    <h3 class="font-display text-xl font-bold mb-6 text-white">Laporan Data Keanggotaan</h3>
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div><label class="block text-sm font-medium mb-2 text-gray-400">Level Organisasi</label><select id="reportLevel" class="input-field w-full px-4 py-3 rounded-xl" onchange="renderReportTable()"><option value="">Semua Level</option><option value="DPC">DPC</option><option value="PAC">PAC</option><option value="Ranting">Ranting</option><option value="Anak Ranting">Anak Ranting</option></select></div>
+                        <div><label class="block text-sm font-medium mb-2 text-gray-400">Jabatan</label><select id="reportJabatan" class="input-field w-full px-4 py-3 rounded-xl" onchange="renderReportTable()"><option value="">Semua Jabatan</option><option value="Ketua">Ketua</option><option value="Sekretaris">Sekretaris</option><option value="Wakil Sekretaris">Wakil Sekretaris</option><option value="Bendahara">Bendahara</option><option value="Wakil Bendahara">Wakil Bendahara</option><option value="Wakabid">Wakabid</option></select></div>
+                        <div><label class="block text-sm font-medium mb-2 text-gray-400">Wilayah</label><select id="reportWilayah" class="input-field w-full px-4 py-3 rounded-xl" onchange="renderReportTable()"><option value="">Semua Wilayah</option></select></div>
+                        <div class="flex items-end gap-3">
+                            <button onclick="printReport()" class="btn-secondary px-4 py-3 rounded-xl flex items-center gap-2 flex-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>Cetak</button>
+                            <button onclick="exportPDF()" class="btn-primary px-4 py-3 rounded-xl flex items-center gap-2 flex-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>PDF</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-left text-gray-400 text-sm border-b border-red-950/30"><th class="pb-4 font-medium">No</th><th class="pb-4 font-medium">NIK</th><th class="pb-4 font-medium">Nama</th><th class="pb-4 font-medium">Jabatan</th><th class="pb-4 font-medium">Level</th><th class="pb-4 font-medium">Wilayah</th><th class="pb-4 font-medium">No. HP</th><th class="pb-4 font-medium">Alamat</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+                </div>
+            </section>
+
+            <!-- Pengaturan Section -->
+            <section id="section-pengaturan" class="p-6 lg:p-8 hidden">
+                <div class="card rounded-2xl p-6 mb-6">
+                    <h3 class="font-display text-xl font-bold mb-6 text-white">Manajemen Database</h3>
+                    <p class="text-gray-400 mb-6">Data disimpan menggunakan <strong>IndexedDB</strong>. Gunakan fitur di bawah untuk membackup atau memindahkan data.</p>
+                    <div class="grid sm:grid-cols-2 gap-6">
+                        <div class="bg-white/5 p-6 rounded-xl border border-dashed border-gray-700">
+                            <h4 class="font-semibold text-green-400 mb-3">Backup Data (Export)</h4>
+                            <p class="text-sm text-gray-500 mb-4">Unduh seluruh database dalam format file JSON.</p>
+                            <button onclick="exportAllData()" class="btn-secondary w-full py-3 rounded-xl">Download Backup Database</button>
+                        </div>
+                        <div class="bg-white/5 p-6 rounded-xl border border-dashed border-gray-700">
+                            <h4 class="font-semibold text-amber-400 mb-3">Restore Data (Import)</h4>
+                            <p class="text-sm text-gray-500 mb-4">Muat data dari file backup JSON. <strong>Perhatian:</strong> Ini akan mengganti data yang ada.</p>
+                            <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="handleImportFile(event)">
+                            <button onclick="document.getElementById('importFileInput').click()" class="btn-primary w-full py-3 rounded-xl">Upload & Restore Database</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="memberModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" role="dialog"><div class="modal-overlay absolute inset-0" onclick="closeMemberModal()"></div><div class="modal-content card rounded-2xl p-6 lg:p-8 max-w-2xl w-full relative z-10 max-h-[90vh] overflow-y-auto"><button onclick="closeMemberModal()" class="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button><h3 class="font-display text-xl font-bold mb-6 text-white" id="memberModalTitle">Tambah Anggota</h3><form id="memberForm" class="space-y-5"><input type="hidden" id="editMemberId"><input type="hidden" id="formKtpBase64"><input type="hidden" id="formPhotoBase64"><div class="grid sm:grid-cols-2 gap-5"><div><label class="block text-sm font-medium mb-2 text-gray-300">NIK <span class="text-red-500">*</span></label><input type="text" id="formNik" required maxlength="16" placeholder="16 digit NIK" class="input-field w-full px-4 py-3 rounded-xl"></div><div><label class="block text-sm font-medium mb-2 text-gray-300">Nama Lengkap <span class="text-red-500">*</span></label><input type="text" id="formNama" required placeholder="Nama sesuai KTP" class="input-field w-full px-4 py-3 rounded-xl"></div></div><div><label class="block text-sm font-medium mb-2 text-gray-300">Alamat <span class="text-red-500">*</span></label><textarea id="formAlamat" required rows="2" placeholder="Alamat lengkap" class="input-field w-full px-4 py-3 rounded-xl resize-none"></textarea></div><div class="grid sm:grid-cols-2 gap-5"><div><label class="block text-sm font-medium mb-2 text-gray-300">No. HP <span class="text-red-500">*</span></label><input type="tel" id="formHp" required placeholder="08xxxxxxxxxx" class="input-field w-full px-4 py-3 rounded-xl"></div><div><label class="block text-sm font-medium mb-2 text-gray-300">Jabatan <span class="text-red-500">*</span></label><select id="formJabatan" required class="input-field w-full px-4 py-3 rounded-xl"><option value="">Pilih Jabatan</option><option value="Ketua">Ketua</option><option value="Sekretaris">Sekretaris</option><option value="Wakil Sekretaris Bidang Internal">Wakil Sekretaris Bidang Internal</option><option value="Wakil Sekretaris Bidang Program">Wakil Sekretaris Bidang Program</option><option value="Bendahara">Bendahara</option><option value="Wakil Bendahara">Wakil Bendahara</option><option value="Wakabid Kehormatan Partai">Wakabid Kehormatan Partai</option><option value="Wakabid Pemenangan Pemilu">Wakabid Pemenangan Pemilu</option><option value="Wakabid Ideologi dan Kaderisasi">Wakabid Ideologi dan Kaderisasi</option><option value="Wakabid Keanggotaan dan Organisasi">Wakabid Keanggotaan dan Organisasi</option><option value="Wakabid Politik dan Hukum">Wakabid Politik dan Hukum</option><option value="Wakabid Pemerintahan dan Birokrasi">Wakabid Pemerintahan dan Birokrasi</option><option value="Wakabid Ekonomi, Budaya, dan Pendidikan">Wakabid Ekonomi, Budaya, dan Pendidikan</option><option value="Wakabid Bencana, Kesehatan, dan Perempuan">Wakabid Bencana, Kesehatan, dan Perempuan</option><option value="Wakabid Industri dan UMKM">Wakabid Industri dan UMKM</option><option value="Wakabid Tenaga Kerja dan Jaminan Sosial">Wakabid Tenaga Kerja dan Jaminan Sosial</option><option value="Wakabid Pariwisata dan Pemuda">Wakabid Pariwisata dan Pemuda</option><option value="Wakabid Keagamaan">Wakabid Keagamaan</option><option value="Wakabid Ekonomi Kreatif dan Digital">Wakabid Ekonomi Kreatif dan Digital</option><option value="Wakabid Pertanian dan Lingkungan">Wakabid Pertanian dan Lingkungan</option><option value="Wakabid Hukum dan Advokasi">Wakabid Hukum dan Advokasi</option><option value="Anggota">Anggota</option></select></div></div><div class="grid sm:grid-cols-2 gap-5"><div><label class="block text-sm font-medium mb-2 text-gray-300">Level <span class="text-red-500">*</span></label><select id="formLevel" required class="input-field w-full px-4 py-3 rounded-xl" onchange="updateWilayahOptions('form')"><option value="">Pilih Level</option><option value="DPC">DPC</option><option value="PAC">PAC</option><option value="Ranting">Ranting</option><option value="Anak Ranting">Anak Ranting</option></select></div><div><label class="block text-sm font-medium mb-2 text-gray-300">Wilayah <span class="text-red-500">*</span></label><select id="formWilayah" required class="input-field w-full px-4 py-3 rounded-xl"><option value="">Pilih Level Dulu</option></select></div></div><div class="grid sm:grid-cols-2 gap-5"><div><label class="block text-sm font-medium mb-2 text-gray-300">Foto Diri</label><div class="flex gap-2 items-center mb-2"><input type="file" id="formPhotoFile" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)"><button type="button" onclick="document.getElementById('formPhotoFile').click()" class="btn-secondary px-4 py-2 rounded-lg text-xs flex-1">Pilih File</button></div><div id="photoPreviewContainer" class="hidden"><div class="preview-container"><img id="photoPreviewImg" src="" alt="Photo"><button type="button" onclick="removePhoto()" class="remove-btn">Hapus</button></div></div></div><div><label class="block text-sm font-medium mb-2 text-gray-300">Upload KTP (JPG, PDF)</label><div class="flex gap-2 items-center mb-2"><input type="file" id="formKtpFile" accept="image/jpeg,image/png,application/pdf" class="hidden" onchange="handleKtpUpload(this)"><button type="button" onclick="document.getElementById('formKtpFile').click()" class="btn-secondary px-4 py-2 rounded-lg text-xs flex-1">Pilih File</button></div><div id="ktpPreviewContainer" class="hidden"><div class="preview-container"><img id="ktpPreviewImg" src="" alt="KTP"><button type="button" onclick="removeKtp()" class="remove-btn">Hapus</button></div></div></div></div><div class="flex gap-4 pt-4"><button type="submit" class="btn-primary px-6 py-3 rounded-xl flex-1">Simpan</button><button type="button" onclick="closeMemberModal()" class="px-6 py-3 rounded-xl font-semibold border border-gray-700 hover:bg-white/10 transition-colors">Batal</button></div></form></div></div>
+    
+    <div id="wilayahModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4"><div class="modal-overlay absolute inset-0" onclick="closeWilayahModal()"></div><div class="modal-content card rounded-2xl p-6 max-w-md w-full relative z-10"><button onclick="closeWilayahModal()" class="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button><h3 class="font-display text-xl font-bold mb-6 text-white" id="wilayahModalTitle">Tambah PAC</h3><form id="wilayahForm" class="space-y-5"><input type="hidden" id="editWilayahId"><input type="hidden" id="editWilayahType"><div><label class="block text-sm font-medium mb-2 text-gray-300">Nama <span class="text-red-500">*</span></label><input type="text" id="formWilayahNama" required placeholder="Nama wilayah" class="input-field w-full px-4 py-3 rounded-xl"></div><div id="parentPacSelect" class="hidden"><label class="block text-sm font-medium mb-2 text-gray-300">PAC Induk</label><select id="formWilayahPac" class="input-field w-full px-4 py-3 rounded-xl"></select></div><div id="parentRantingSelect" class="hidden"><label class="block text-sm font-medium mb-2 text-gray-300">Ranting Induk</label><select id="formWilayahRanting" class="input-field w-full px-4 py-3 rounded-xl"></select></div><div class="flex gap-4 pt-4"><button type="submit" class="btn-primary px-6 py-3 rounded-xl flex-1">Simpan</button><button type="button" onclick="closeWilayahModal()" class="px-6 py-3 rounded-xl font-semibold border border-gray-700 hover:bg-white/10 transition-colors">Batal</button></div></form></div></div>
+    
+    <div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4"><div class="modal-overlay absolute inset-0" onclick="closeModal()"></div><div class="modal-content card rounded-2xl p-6 lg:p-8 max-w-lg w-full relative z-10 max-h-[90vh] overflow-y-auto"><button onclick="closeModal()" class="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-xl"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button><div id="modalContent"></div></div></div>
+    
+    <div id="toast" class="fixed bottom-6 right-6 z-50 no-print transform translate-y-20 opacity-0 transition-all duration-300"><div class="card rounded-xl px-6 py-4 flex items-center gap-3 border border-red-900/50"><svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span id="toastMessage">Berhasil!</span></div></div>
+
+    <script>
+        // ==================== 1. DATABASE & DATA SETUP ====================
+        const DB_NAME = 'SIMPARTAI_DB_V2';
+        const DB_VERSION = 1;
+        let db;
+
+        const defaultMembers = [
+            { id: 1, nik: '3301010101850001', nama: 'Rober Christanto', alamat: 'Jl. Raya Karanganyar No. 1', hp: '081234567801', jabatan: 'Ketua', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 2, nik: '3301010102850002', nama: 'Sri Harjono', alamat: 'Jl. Slamet No. 45', hp: '081234567802', jabatan: 'Sekretaris', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 3, nik: '3301010103850003', nama: 'Anton Sugiarto', alamat: 'Jl. Diponegoro No. 12', hp: '081234567803', jabatan: 'Wakil Sekretaris Bidang Internal', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 4, nik: '3301010104850004', nama: 'Teguh Widayatmo', alamat: 'Jl. Gatot Subroto No. 88', hp: '081234567804', jabatan: 'Wakil Sekretaris Bidang Program', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 5, nik: '3301010105850005', nama: 'Latri Listyowati', alamat: 'Jl. Sudirman No. 23', hp: '081234567805', jabatan: 'Bendahara', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 6, nik: '3301010106850006', nama: 'Eni Candrawati', alamat: 'Jl. Ahmad Yani No. 56', hp: '081234567806', jabatan: 'Wakil Bendahara', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 7, nik: '3301010107850007', nama: 'Boby Aditia Putra P.', alamat: 'Jl. Pemuda No. 78', hp: '081234567807', jabatan: 'Wakabid Kehormatan Partai', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 8, nik: '3301010108850008', nama: 'Bagus Selo', alamat: 'Jl. Merdeka No. 34', hp: '081234567808', jabatan: 'Wakabid Pemenangan Pemilu', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 9, nik: '3301010109850009', nama: 'Joko Pramono', alamat: 'Jl. Kartini No. 67', hp: '081234567809', jabatan: 'Wakabid Ideologi dan Kaderisasi', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 10, nik: '3301010110850010', nama: 'F. Adhitya Nugroho', alamat: 'Jl. Pahlawan No. 90', hp: '081234567810', jabatan: 'Wakabid Keanggotaan dan Organisasi', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 11, nik: '3301010111850011', nama: 'Suparno', alamat: 'Jl. Veteran No. 11', hp: '081234567811', jabatan: 'Wakabid Politik dan Hukum', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 12, nik: '3301010112850012', nama: 'Yuni Agustina', alamat: 'Jl. Bhayangkara No. 22', hp: '081234567812', jabatan: 'Wakabid Pemerintahan dan Birokrasi', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 13, nik: '3301010113850013', nama: 'Sri Handayani', alamat: 'Jl. KS. Tubun No. 33', hp: '081234567813', jabatan: 'Wakabid Ekonomi, Budaya, dan Pendidikan', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 14, nik: '3301010114850014', nama: 'Sri Partini Handayani', alamat: 'Jl. RA. Kartini No. 44', hp: '081234567814', jabatan: 'Wakabid Bencana, Kesehatan, dan Perempuan', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 15, nik: '3301010115850015', nama: 'Wahyu Budi Sugiharto', alamat: 'Jl. Hasanuddin No. 55', hp: '081234567815', jabatan: 'Wakabid Industri dan UMKM', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 16, nik: '3301010116850016', nama: 'Yudith Trisna Nirmala', alamat: 'Jl. Sisingamangaraja No. 66', hp: '081234567816', jabatan: 'Wakabid Tenaga Kerja dan Jaminan Sosial', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 17, nik: '3301010117850017', nama: 'Deni Setiawan', alamat: 'Jl. Imambonjol No. 77', hp: '081234567817', jabatan: 'Wakabid Pariwisata dan Pemuda', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 18, nik: '3301010118850018', nama: 'Dwi Sugiyanto', alamat: 'Jl. Diponegoro No. 88', hp: '081234567818', jabatan: 'Wakabid Keagamaan', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 19, nik: '3301010119850019', nama: 'Vivi Andriani', alamat: 'Jl. Jenderal Sudirman No. 99', hp: '081234567819', jabatan: 'Wakabid Ekonomi Kreatif dan Digital', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 20, nik: '3301010120850020', nama: 'Rifan Feir Nandhi', alamat: 'Jl. Lawu No. 100', hp: '081234567820', jabatan: 'Wakabid Pertanian dan Lingkungan', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+            { id: 21, nik: '3301010121850021', nama: 'Ristanto Djoyohadikusumo', alamat: 'Jl. Merbabu No. 111', hp: '081234567821', jabatan: 'Wakabid Hukum dan Advokasi', level: 'DPC', wilayah: 'Kab. Karanganyar', photoBase64: null, ktpBase64: null },
+        ];
+        const defaultPac = [ { id: 1, nama: 'Karanganyar' }, { id: 2, nama: 'Karangpandan' }, { id: 3, nama: 'Matesih' }, { id: 4, nama: 'Tawangmangu' }, { id: 5, nama: 'Ngargoyoso' }, { id: 6, nama: 'Jenawi' }, ];
+        const defaultRanting = [ { id: 1, nama: 'Kel. Karanganyar', pacId: 1 }, { id: 2, nama: 'Kel. Delingan', pacId: 1 }, { id: 3, nama: 'Kel. Cangakan', pacId: 1 }, { id: 4, nama: 'Desa Dayu', pacId: 2 }, ];
+        const defaultAnakRanting = [ { id: 1, nama: 'RT 01/RW 02', rantingId: 1 }, { id: 2, nama: 'RT 02/RW 02', rantingId: 1 }, ];
+
+        // State
+        let members = []; let pacList = []; let rantingList = []; let anakRantingList = [];
+        let currentPage = 1; const itemsPerPage = 10;
+        let selectedPacId = null; let selectedRantingId = null;
+
+        // ==================== 2. DATABASE FUNCTIONS ====================
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains('members')) database.createObjectStore('members', { keyPath: 'id' });
+                    if (!database.objectStoreNames.contains('pac')) database.createObjectStore('pac', { keyPath: 'id' });
+                    if (!database.objectStoreNames.contains('ranting')) database.createObjectStore('ranting', { keyPath: 'id' });
+                    if (!database.objectStoreNames.contains('anak_ranting')) database.createObjectStore('anak_ranting', { keyPath: 'id' });
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    console.log("Database opened successfully");
+                    resolve(db);
+                };
+
+                request.onerror = (event) => {
+                    console.error("Database error:", event.target.error);
+                    reject("Database error: " + event.target.error);
+                };
+            });
+        }
+
+        function loadDataFromDB(storeName, defaultData) {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject("DB not initialized");
+                
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (data && data.length > 0) {
+                        resolve(data);
+                    } else {
+                        // Populate default data
+                        const tx = db.transaction(storeName, 'readwrite');
+                        const st = tx.objectStore(storeName);
+                        defaultData.forEach(item => st.add(item));
+                        
+                        tx.oncomplete = () => resolve(defaultData);
+                        tx.onerror = (e) => reject("Error populating: " + e.target.error);
+                    }
+                };
+                request.onerror = (e) => reject("Error loading: " + e.target.error);
+            });
+        }
+
+        function saveDataToDB(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                
+                store.clear(); // Clear existing
+                data.forEach(item => store.add(item));
+
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = (e) => reject("Error saving: " + e.target.error);
+            });
+        }
+
+        // Export Import
+        async function exportAllData() {
+            showToast("Menyiapkan backup...");
+            const data = {
+                members: await loadDataFromDB('members', []),
+                pac: await loadDataFromDB('pac', []),
+                ranting: await loadDataFromDB('ranting', []),
+                anak_ranting: await loadDataFromDB('anak_ranting', []),
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `simpartai_backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Backup berhasil diunduh!");
+        }
+
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const content = JSON.parse(e.target.result);
+                    if (confirm('Ini akan menghapus semua data saat ini dan menggantinya dengan data dari file. Lanjutkan?')) {
+                        if (content.members) await saveDataToDB('members', content.members);
+                        if (content.pac) await saveDataToDB('pac', content.pac);
+                        if (content.ranting) await saveDataToDB('ranting', content.ranting);
+                        if (content.anak_ranting) await saveDataToDB('anak_ranting', content.anak_ranting);
+                        
+                        showToast("Data berhasil direstore! Halaman akan dimuat ulang.");
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                } catch (err) {
+                    showToast("Gagal membaca file. Pastikan format JSON valid.");
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ==================== 3. APP INITIALIZATION ====================
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const loadingText = document.getElementById('loadingText');
+                
+                loadingText.textContent = "Menginisialisasi Database...";
+                await initDB();
+                
+                loadingText.textContent = "Memuat Data Anggota...";
+                members = await loadDataFromDB('members', defaultMembers);
+                
+                loadingText.textContent = "Memuat Data Wilayah...";
+                pacList = await loadDataFromDB('pac', defaultPac);
+                rantingList = await loadDataFromDB('ranting', defaultRanting);
+                anakRantingList = await loadDataFromDB('anak_ranting', defaultAnakRanting);
+
+                // Hide loading screen
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(() => loadingScreen.remove(), 500);
+                }
+
+                // Initialize UI
+                createParticles(); 
+                updateDateTime(); 
+                setInterval(updateDateTime, 1000);
+                renderMemberTable(); 
+                renderWilayahLists(); 
+                updateAllStats();
+                renderDashboardStructure(); 
+                setupEventListeners();
+
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                const lt = document.getElementById('loadingText');
+                if(lt) lt.textContent = "Error: " + error;
+                alert("Terjadi kesalahan saat memuat database. Cek console (F12) untuk detail.");
+            }
+        });
+
+        // ==================== 4. UI HELPERS ====================
+        function createParticles() { const container = document.getElementById('particles'); if (!container) return; for (let i = 0; i < 20; i++) { const particle = document.createElement('div'); particle.className = 'particle'; particle.style.left = Math.random() * 100 + '%'; particle.style.animationDelay = Math.random() * 15 + 's'; particle.style.animationDuration = (15 + Math.random() * 10) + 's'; particle.style.width = (2 + Math.random() * 4) + 'px'; particle.style.height = particle.style.width; container.appendChild(particle); } }
+
+        function getBadgeClass(jabatan) { if (!jabatan) return 'badge-anggota'; if (jabatan === 'Ketua') return 'badge-ketua'; if (jabatan === 'Sekretaris') return 'badge-sekretaris'; if (jabatan.startsWith('Wakil Sekretaris')) return 'badge-wakasekretaris'; if (jabatan === 'Bendahara') return 'badge-bendahara'; if (jabatan === 'Wakil Bendahara') return 'badge-wakabendahara'; if (jabatan.startsWith('Wakabid')) return 'badge-wakabid'; return 'badge-anggota'; }
+        function getJabatanCategory(jabatan) { if (!jabatan) return 'Anggota'; if (jabatan === 'Ketua') return 'Ketua'; if (jabatan === 'Sekretaris') return 'Sekretaris'; if (jabatan.startsWith('Wakil Sekretaris')) return 'Wakil Sekretaris'; if (jabatan === 'Bendahara') return 'Bendahara'; if (jabatan === 'Wakil Bendahara') return 'Wakil Bendahara'; if (jabatan.startsWith('Wakabid')) return 'Wakabid'; return 'Anggota'; }
+        function getInitials(name) { if (!name) return '??'; return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase(); }
+        
+        function renderAvatar(member, sizeClass = "w-12 h-12 text-lg", extraClasses = "") {
+            const initials = getInitials(member ? member.nama : null);
+            const photo = member ? member.photoBase64 : null;
+            let content = photo ? `<img src="${photo}" alt="${initials}">` : initials;
+            return `<div class="avatar ${sizeClass} ${extraClasses}">${content}</div>`;
+        }
+
+        function showToast(message) { const toast = document.getElementById('toast'); const toastMessage = document.getElementById('toastMessage'); if (!toast || !toastMessage) return; toastMessage.textContent = message; toast.classList.add('translate-y-0', 'opacity-100'); toast.classList.remove('translate-y-20', 'opacity-0'); setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); toast.classList.remove('translate-y-0', 'opacity-100'); }, 3000); }
+        function updateDateTime() { const now = new Date(); const currentDateEl = document.getElementById('currentDate'); const currentTimeEl = document.getElementById('currentTime'); if (currentDateEl) currentDateEl.textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); if (currentTimeEl) currentTimeEl.textContent = now.toLocaleTimeString('id-ID'); }
+        function animateCounter(element, target) { if (!element) return; const duration = 1500; const startTime = performance.now(); function update(currentTime) { const elapsed = currentTime - startTime; const progress = Math.min(elapsed / duration, 1); const easeOut = 1 - Math.pow(1 - progress, 3); element.textContent = Math.floor(target * easeOut); if (progress < 1) requestAnimationFrame(update); } requestAnimationFrame(update); }
+
+        // ==================== 5. STATS & NAV ====================
+        function updateAllStats() { animateCounter(document.getElementById('statTotalPengurus'), members.length); animateCounter(document.getElementById('statPAC'), pacList.length); animateCounter(document.getElementById('statRanting'), rantingList.length); animateCounter(document.getElementById('statAnakRanting'), anakRantingList.length); const strukturTotal = document.getElementById('strukturTotal'); if (strukturTotal) strukturTotal.textContent = members.length; renderDashboardChart(); }
+        function showSection(section) { document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden')); const sectionEl = document.getElementById('section-' + section); if (sectionEl) sectionEl.classList.remove('hidden'); document.querySelectorAll('.sidebar-link').forEach(link => { link.classList.remove('active'); if (link.dataset.section === section) link.classList.add('active'); }); const titles = { dashboard: 'Dashboard', anggota: 'Data Anggota', struktur: 'Struktur Organisasi', wilayah: 'Manajemen Wilayah', laporan: 'Laporan', pengaturan: 'Pengaturan Data' }; const pageTitleEl = document.getElementById('pageTitle'); if (pageTitleEl) pageTitleEl.textContent = titles[section] || 'Dashboard'; const sidebar = document.getElementById('sidebar'); if (sidebar) sidebar.classList.add('-translate-x-full'); if (section === 'laporan') renderReportTable(); if (section === 'struktur') renderStrukturOrganisasi(); if (section === 'dashboard') renderDashboardStructure(); }
+
+        // ==================== 6. DASHBOARD ====================
+        function renderDashboardChart() { const container = document.getElementById('jabatanChart'); if (!container) return; const categories = ['Ketua', 'Sekretaris', 'Wakil Sekretaris', 'Bendahara', 'Wakil Bendahara', 'Wakabid']; const jabatanCounts = {}; categories.forEach(cat => jabatanCounts[cat] = 0); members.forEach(m => { const cat = getJabatanCategory(m.jabatan); if (jabatanCounts[cat] !== undefined) jabatanCounts[cat]++; }); const total = Math.max(members.length, 1); const colors = { 'Ketua': 'bg-red-600', 'Sekretaris': 'bg-blue-500', 'Wakil Sekretaris': 'bg-blue-400', 'Bendahara': 'bg-emerald-500', 'Wakil Bendahara': 'bg-emerald-400', 'Wakabid': 'bg-amber-500' }; container.innerHTML = Object.entries(jabatanCounts).filter(([_, count]) => count > 0).map(([jabatan, count]) => `<div><div class="flex justify-between text-sm mb-2"><span class="text-gray-400">${jabatan}</span><span class="font-semibold text-white">${count}</span></div><div class="progress-bar"><div class="${colors[jabatan]} progress-fill" style="width: ${(count/total)*100}%;"></div></div></div>`).join(''); }
+
+        function renderDashboardStructure() {
+            const intiGrid = document.getElementById('dashboardIntiGrid');
+            if (intiGrid) {
+                const ketua = members.find(m => m.level === 'DPC' && m.jabatan === 'Ketua');
+                const sekretaris = members.find(m => m.level === 'DPC' && m.jabatan === 'Sekretaris');
+                const waksekInternal = members.find(m => m.level === 'DPC' && m.jabatan === 'Wakil Sekretaris Bidang Internal');
+                const waksekProgram = members.find(m => m.level === 'DPC' && m.jabatan === 'Wakil Sekretaris Bidang Program');
+                const bendahara = members.find(m => m.level === 'DPC' && m.jabatan === 'Bendahara');
+                const wakbend = members.find(m => m.level === 'DPC' && m.jabatan === 'Wakil Bendahara');
+                
+                const roles = [
+                    { title: 'Ketua', person: ketua, color: '' },
+                    { title: 'Sekretaris', person: sekretaris, color: 'avatar-blue' },
+                    { title: 'Wakil Sekretaris Internal', person: waksekInternal, color: 'avatar-blue' },
+                    { title: 'Wakil Sekretaris Program', person: waksekProgram, color: 'avatar-blue' },
+                    { title: 'Bendahara', person: bendahara, color: 'avatar-green' },
+                    { title: 'Wakil Bendahara', person: wakbend, color: 'avatar-green' }
+                ];
+                intiGrid.innerHTML = roles.map(role => `
+                    <div class="card rounded-xl p-4 text-center cursor-pointer" onclick="${role.person ? `showDetail(${role.person.id})` : ''}">
+                        ${renderAvatar(role.person, 'w-12 h-12 text-lg mb-3', role.color)}
+                        <p class="font-semibold text-xs truncate">${role.person ? role.person.nama : 'Belum ada'}</p>
+                        <span class="badge badge-${role.title.toLowerCase().replace(/ /g, '')} mt-2">${role.title}</span>
+                    </div>
+                `).join('');
+            }
+
+            const wakabidGrid = document.getElementById('dashboardWakabidGrid');
+            if (wakabidGrid) {
+                const wakabids = members.filter(m => m.level === 'DPC' && m.jabatan.startsWith('Wakabid'));
+                wakabidGrid.innerHTML = wakabids.map(w => `<div class="card rounded-xl p-4 cursor-pointer" onclick="showDetail(${w.id})"><div class="flex items-center gap-3">${renderAvatar(w, 'w-10 h-10 text-xs', 'avatar-gold')}<div class="min-w-0"><p class="font-semibold text-sm truncate">${w.nama}</p><p class="text-xs text-gray-500 truncate">${w.jabatan.replace('Wakabid ', '')}</p></div></div></div>`).join('');
+            }
+        }
+
+        // ==================== 7. STRUKTUR ORGANISASI ====================
+        function renderStrukturOrganisasi() {
+            const dpcIntiGrid = document.getElementById('dpcIntiGrid');
+            if (dpcIntiGrid) {
+                const ketua = members.find(m => m.level === 'DPC' && m.jabatan === 'Ketua');
+                const sekretaris = members.find(m => m.level === 'DPC' && m.jabatan === 'Sekretaris');
+                const waksekInternal = members.find(m => m.level === 'DPC' && m.jabatan === 'Wakil Sekretaris Bidang Internal');
+                const waksekProgram = members.find(m => m.level === 'DPC' && m.jabatan === 'Wakil Sekretaris Bidang Program');
+                const bendahara = members.find(m => m.level === 'DPC' && m.jabatan === 'Bendahara');
+                const wakbend = members.find(m => m.level === 'DPC' && m.jabatan === 'Wakil Bendahara');
+                
+                const roles = [
+                    { title: 'Ketua', person: ketua, color: '' },
+                    { title: 'Sekretaris', person: sekretaris, color: 'avatar-blue' },
+                    { title: 'Wakil Sekretaris Internal', person: waksekInternal, color: 'avatar-blue' },
+                    { title: 'Wakil Sekretaris Program', person: waksekProgram, color: 'avatar-blue' },
+                    { title: 'Bendahara', person: bendahara, color: 'avatar-green' },
+                    { title: 'Wakil Bendahara', person: wakbend, color: 'avatar-green' }
+                ];
+                dpcIntiGrid.innerHTML = roles.map(role => `
+                    <div class="card org-card rounded-xl p-4 text-center cursor-pointer" onclick="${role.person ? `showDetail(${role.person.id})` : ''}">
+                        ${renderAvatar(role.person, 'w-12 h-12 text-lg mb-3', role.color)}
+                        <p class="font-semibold text-xs truncate">${role.person ? role.person.nama : 'Belum ada'}</p>
+                        <span class="badge badge-${role.title.toLowerCase().replace(/ /g, '')} mt-2">${role.title}</span>
+                    </div>
+                `).join('');
+            }
+
+            const dpcWakabidGrid = document.getElementById('dpcWakabidGrid');
+            if (dpcWakabidGrid) {
+                const wakabids = members.filter(m => m.level === 'DPC' && m.jabatan.startsWith('Wakabid'));
+                dpcWakabidGrid.innerHTML = wakabids.map(w => `<div class="card org-card rounded-xl p-4 cursor-pointer" onclick="showDetail(${w.id})"><div class="flex items-center gap-3">${renderAvatar(w, 'w-10 h-10 text-xs', 'avatar-gold')}<div class="min-w-0"><p class="font-semibold text-sm truncate">${w.nama}</p><p class="text-xs text-gray-500 truncate">${w.jabatan.replace('Wakabid ', '')}</p></div></div></div>`).join('');
+            }
+
+            const pacSelectionGrid = document.getElementById('pacSelectionGrid');
+            if (pacSelectionGrid) {
+                if (pacList.length === 0) {
+                    pacSelectionGrid.innerHTML = '<p class="text-gray-500 text-sm col-span-full text-center py-4">Belum ada data PAC.</p>';
+                } else {
+                    pacSelectionGrid.innerHTML = pacList.map(p => {
+                        const isActive = p.id === selectedPacId;
+                        const count = rantingList.filter(r => r.pacId === p.id).length;
+                        return `<div class="card org-level-card rounded-lg p-3 text-center ${isActive ? 'active' : ''}" onclick="selectPAC(${p.id}, '${p.nama}')">
+                            <p class="font-semibold text-sm">${p.nama}</p>
+                            <p class="text-xs text-gray-500 mt-1">${count} Ranting</p>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            if (selectedPacId) renderRantingSection(selectedPacId);
+            else document.getElementById('rantingSectionContainer').classList.add('hidden');
+        }
+
+        function selectPAC(pacId, pacName) { selectedPacId = pacId; selectedRantingId = null; renderStrukturOrganisasi(); document.getElementById('selectedPacName').textContent = `di ${pacName}`; document.getElementById('rantingSectionContainer').classList.remove('hidden'); document.getElementById('anakRantingSectionContainer').classList.add('hidden'); renderRantingSection(pacId); }
+
+        function renderRantingSection(pacId) { 
+            const filteredRantings = rantingList.filter(r => r.pacId === pacId); 
+            const rantingSelectionGrid = document.getElementById('rantingSelectionGrid'); 
+            const pacOfficialsContainer = document.getElementById('pacOfficialsContainer');
+            const pacData = pacList.find(p => p.id === pacId);
+            const pacName = pacData ? pacData.nama : '';
+
+            if (pacOfficialsContainer && pacName) {
+                const getOfficial = (jabatan) => members.find(m => m.level === 'PAC' && m.wilayah === pacName && m.jabatan === jabatan);
+                const ketua = getOfficial('Ketua');
+                const sekretaris = getOfficial('Sekretaris');
+                const bendahara = getOfficial('Bendahara');
+
+                pacOfficialsContainer.innerHTML = `
+                    <h6 class="text-sm font-semibold text-white mb-3 border-b border-red-900/30 pb-2">Pengurus PAC ${pacName}</h6>
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="card rounded-lg p-3 text-center cursor-pointer" onclick="${ketua ? `showDetail(${ketua.id})` : ''}">
+                            ${renderAvatar(ketua, 'w-10 h-10 text-sm mb-2 mx-auto')}
+                            <p class="text-xs font-medium truncate">${ketua ? ketua.nama : 'Kosong'}</p>
+                            <span class="badge badge-ketua mt-1">Ketua</span>
+                        </div>
+                        <div class="card rounded-lg p-3 text-center cursor-pointer" onclick="${sekretaris ? `showDetail(${sekretaris.id})` : ''}">
+                            ${renderAvatar(sekretaris, 'w-10 h-10 text-sm mb-2 mx-auto', 'avatar-blue')}
+                            <p class="text-xs font-medium truncate">${sekretaris ? sekretaris.nama : 'Kosong'}</p>
+                            <span class="badge badge-sekretaris mt-1">Sekretaris</span>
+                        </div>
+                        <div class="card rounded-lg p-3 text-center cursor-pointer" onclick="${bendahara ? `showDetail(${bendahara.id})` : ''}">
+                            ${renderAvatar(bendahara, 'w-10 h-10 text-sm mb-2 mx-auto', 'avatar-green')}
+                            <p class="text-xs font-medium truncate">${bendahara ? bendahara.nama : 'Kosong'}</p>
+                            <span class="badge badge-bendahara mt-1">Bendahara</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (filteredRantings.length === 0) { rantingSelectionGrid.innerHTML = '<p class="text-gray-500 text-sm col-span-full text-center py-4">Belum ada Ranting di PAC ini.</p>'; return; } 
+            
+            rantingSelectionGrid.innerHTML = filteredRantings.map(r => { 
+                const isActive = r.id === selectedRantingId; 
+                return `<div class="card org-level-card rounded-xl p-4 ${isActive ? 'active' : ''}" onclick="selectRanting(${r.id}, '${r.nama}')"><h4 class="font-semibold text-sm mb-2 border-b border-white/10 pb-2">${r.nama}</h4></div>`; 
+            }).join(''); 
+        }
+
+        function selectRanting(rantingId, rantingName) { selectedRantingId = rantingId; document.getElementById('selectedRantingName').textContent = `di ${rantingName}`; document.getElementById('anakRantingSectionContainer').classList.remove('hidden'); renderAnakRantingSection(rantingId); if(selectedPacId) renderRantingSection(selectedPacId); }
+
+        function renderAnakRantingSection(rantingId) { 
+            const filteredAnakRantings = anakRantingList.filter(a => a.rantingId === rantingId); 
+            const anakRantingSelectionGrid = document.getElementById('anakRantingSelectionGrid'); 
+            const rantingOfficialsContainer = document.getElementById('rantingOfficialsContainer');
+            const rantingData = rantingList.find(r => r.id === rantingId);
+            const rantingName = rantingData ? rantingData.nama : '';
+
+            if (rantingOfficialsContainer && rantingName) {
+                const getOfficial = (jabatan) => members.find(m => m.level === 'Ranting' && m.wilayah === rantingName && m.jabatan === jabatan);
+                const ketua = getOfficial('Ketua');
+                const sekretaris = getOfficial('Sekretaris');
+                const bendahara = getOfficial('Bendahara');
+
+                rantingOfficialsContainer.innerHTML = `
+                    <h6 class="text-sm font-semibold text-white mb-3 border-b border-red-900/30 pb-2">Pengurus Ranting ${rantingName}</h6>
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="card rounded-lg p-3 text-center cursor-pointer" onclick="${ketua ? `showDetail(${ketua.id})` : ''}">
+                            ${renderAvatar(ketua, 'w-10 h-10 text-sm mb-2 mx-auto')}
+                            <p class="text-xs font-medium truncate">${ketua ? ketua.nama : 'Kosong'}</p>
+                            <span class="badge badge-ketua mt-1">Ketua</span>
+                        </div>
+                        <div class="card rounded-lg p-3 text-center cursor-pointer" onclick="${sekretaris ? `showDetail(${sekretaris.id})` : ''}">
+                            ${renderAvatar(sekretaris, 'w-10 h-10 text-sm mb-2 mx-auto', 'avatar-blue')}
+                            <p class="text-xs font-medium truncate">${sekretaris ? sekretaris.nama : 'Kosong'}</p>
+                            <span class="badge badge-sekretaris mt-1">Sekretaris</span>
+                        </div>
+                        <div class="card rounded-lg p-3 text-center cursor-pointer" onclick="${bendahara ? `showDetail(${bendahara.id})` : ''}">
+                            ${renderAvatar(bendahara, 'w-10 h-10 text-sm mb-2 mx-auto', 'avatar-green')}
+                            <p class="text-xs font-medium truncate">${bendahara ? bendahara.nama : 'Kosong'}</p>
+                            <span class="badge badge-bendahara mt-1">Bendahara</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (filteredAnakRantings.length === 0) { anakRantingSelectionGrid.innerHTML = '<p class="text-gray-500 text-sm col-span-full text-center py-4">Belum ada Anak Ranting.</p>'; return; } 
+            
+            anakRantingSelectionGrid.innerHTML = filteredAnakRantings.map(a => { 
+                return `<div class="card rounded-xl p-4 border-red-900/20"><h4 class="font-semibold text-sm mb-2 border-b border-white/10 pb-2">${a.nama}</h4><p class="text-xs text-gray-500">Klik untuk kelola data</p></div>`; 
+            }).join(''); 
+        }
+
+        function closeRantingSection() { selectedPacId = null; selectedRantingId = null; document.getElementById('rantingSectionContainer').classList.add('hidden'); document.getElementById('anakRantingSectionContainer').classList.add('hidden'); renderStrukturOrganisasi(); }
+        function closeAnakRantingSection() { selectedRantingId = null; document.getElementById('anakRantingSectionContainer').classList.add('hidden'); if(selectedPacId) renderRantingSection(selectedPacId); }
+
+        // ==================== 8. MEMBER CRUD ====================
+        function renderMemberTable() { 
+            const search = (document.getElementById('searchInput')?.value || '').toLowerCase(); 
+            const levelValue = document.getElementById('filterLevel')?.value || ''; 
+            const jabatanValue = document.getElementById('filterJabatan')?.value || ''; 
+            let filtered = members.filter(m => { 
+                const matchSearch = (m.nama || '').toLowerCase().includes(search) || (m.nik || '').includes(search); 
+                const matchLevel = !levelValue || m.level === levelValue; 
+                const matchJabatan = !jabatanValue || getJabatanCategory(m.jabatan) === jabatanValue; 
+                return matchSearch && matchLevel && matchJabatan; 
+            }); 
+            const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage)); 
+            currentPage = Math.min(currentPage, totalPages); 
+            const start = (currentPage - 1) * itemsPerPage; 
+            const paged = filtered.slice(start, start + itemsPerPage); 
+            const memberTable = document.getElementById('memberTable'); 
+            if (memberTable) { 
+                memberTable.innerHTML = paged.map(m => `<tr class="table-row border-b border-red-950/20">
+                    <td class="py-4 font-mono text-sm text-gray-400">${m.nik || '-'}</td>
+                    <td class="py-4"><div class="flex items-center gap-3">${renderAvatar(m, 'w-9 h-9 text-xs')}<span class="font-medium">${m.nama || '-'}</span></div></td>
+                    <td class="py-4 hidden md:table-cell text-sm text-gray-300">${m.level || '-'}</td>
+                    <td class="py-4 hidden lg:table-cell text-sm text-gray-500">${m.wilayah || '-'}</td>
+                    <td class="py-4"><span class="badge ${getBadgeClass(m.jabatan)}">${m.jabatan || '-'}</span></td>
+                    <td class="py-4 hidden sm:table-cell text-sm text-gray-300">${m.hp || '-'}</td>
+                    <td class="py-4 text-center no-print"><div class="flex items-center justify-center gap-1">
+                        <button onclick="showDetail(${m.id})" class="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Detail"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button>
+                        <button onclick="editMember(${m.id})" class="p-2 hover:bg-amber-500/10 rounded-lg transition-colors" title="Edit"><svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                        <button onclick="deleteMember(${m.id})" class="p-2 hover:bg-red-500/20 rounded-lg transition-colors" title="Hapus"><svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                    </div></td>
+                </tr>`).join(''); 
+            } 
+            if (document.getElementById('showingCount')) document.getElementById('showingCount').textContent = paged.length; 
+            if (document.getElementById('totalCount')) document.getElementById('totalCount').textContent = filtered.length; 
+            const pagination = document.getElementById('pagination'); 
+            if (pagination) { let paginationHtml = ''; if (totalPages > 1) for (let i = 1; i <= totalPages; i++) paginationHtml += `<button onclick="goToPage(${i})" class="px-3 py-1.5 rounded-lg text-sm ${currentPage === i ? 'bg-red-600 text-white' : 'hover:bg-white/10 text-gray-400'}">${i}</button>`; pagination.innerHTML = paginationHtml; } 
+        }
+        function goToPage(page) { currentPage = page; renderMemberTable(); }
+        function showAddMemberModal() { document.getElementById('memberModalTitle').textContent = 'Tambah Anggota'; document.getElementById('editMemberId').value = ''; document.getElementById('memberForm').reset(); document.getElementById('formWilayah').innerHTML = '<option value="">Pilih Level Dulu</option>'; document.getElementById('formKtpBase64').value = ''; document.getElementById('formPhotoBase64').value = ''; document.getElementById('ktpPreviewContainer').classList.add('hidden'); document.getElementById('photoPreviewContainer').classList.add('hidden'); document.getElementById('memberModal').classList.remove('hidden'); document.getElementById('memberModal').classList.add('flex'); }
+        function closeMemberModal() { document.getElementById('memberModal').classList.add('hidden'); document.getElementById('memberModal').classList.remove('flex'); }
+        
+        function handlePhotoUpload(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.getElementById('formPhotoBase64').value = e.target.result; document.getElementById('photoPreviewImg').src = e.target.result; document.getElementById('photoPreviewContainer').classList.remove('hidden'); }; reader.readAsDataURL(input.files[0]); } }
+        function removePhoto() { document.getElementById('formPhotoBase64').value = ''; document.getElementById('formPhotoFile').value = ''; document.getElementById('photoPreviewContainer').classList.add('hidden'); }
+        function handleKtpUpload(input) { if (input.files && input.files[0]) { const reader = new FileReader(); reader.onload = function(e) { document.getElementById('formKtpBase64').value = e.target.result; document.getElementById('ktpPreviewImg').src = e.target.result; document.getElementById('ktpPreviewContainer').classList.remove('hidden'); }; reader.readAsDataURL(input.files[0]); } }
+        function removeKtp() { document.getElementById('formKtpBase64').value = ''; document.getElementById('formKtpFile').value = ''; document.getElementById('ktpPreviewContainer').classList.add('hidden'); }
+
+        function editMember(id) { const member = members.find(m => m.id === id); if (!member) return; document.getElementById('memberModalTitle').textContent = 'Edit Anggota'; document.getElementById('editMemberId').value = id; document.getElementById('formNik').value = member.nik || ''; document.getElementById('formNama').value = member.nama || ''; document.getElementById('formAlamat').value = member.alamat || ''; document.getElementById('formHp').value = member.hp || ''; document.getElementById('formJabatan').value = member.jabatan || ''; document.getElementById('formLevel').value = member.level || ''; updateWilayahOptions('form'); setTimeout(() => { document.getElementById('formWilayah').value = member.wilayah || ''; }, 50); if (member.photoBase64) { document.getElementById('formPhotoBase64').value = member.photoBase64; document.getElementById('photoPreviewImg').src = member.photoBase64; document.getElementById('photoPreviewContainer').classList.remove('hidden'); } else { removePhoto(); } if (member.ktpBase64) { document.getElementById('formKtpBase64').value = member.ktpBase64; document.getElementById('ktpPreviewImg').src = member.ktpBase64; document.getElementById('ktpPreviewContainer').classList.remove('hidden'); } else { removeKtp(); } document.getElementById('memberModal').classList.remove('hidden'); document.getElementById('memberModal').classList.add('flex'); }
+        
+        async function handleMemberFormSubmit(e) { 
+            e.preventDefault(); 
+            const editId = document.getElementById('editMemberId').value; 
+            const memberData = { 
+                nik: document.getElementById('formNik').value, 
+                nama: document.getElementById('formNama').value, 
+                alamat: document.getElementById('formAlamat').value, 
+                hp: document.getElementById('formHp').value, 
+                jabatan: document.getElementById('formJabatan').value, 
+                level: document.getElementById('formLevel').value, 
+                wilayah: document.getElementById('formWilayah').value, 
+                photoBase64: document.getElementById('formPhotoBase64').value || null, 
+                ktpBase64: document.getElementById('formKtpBase64').value || null 
+            }; 
+            
+            if (editId) { 
+                const index = members.findIndex(m => m.id === parseInt(editId)); 
+                if (index !== -1) { 
+                    members[index] = { ...members[index], ...memberData }; 
+                    showToast('Anggota berhasil diupdate'); 
+                } 
+            } else { 
+                memberData.id = members.length > 0 ? Math.max(...members.map(m => m.id)) + 1 : 1; 
+                members.push(memberData); 
+                showToast('Anggota berhasil ditambahkan'); 
+            } 
+            
+            await saveDataToDB('members', members);
+            closeMemberModal(); 
+            renderMemberTable(); 
+            renderStrukturOrganisasi(); 
+            renderDashboardStructure(); 
+            updateAllStats(); 
+        }
+        
+        async function deleteMember(id) { 
+            if (confirm('Apakah Anda yakin ingin menghapus anggota ini secara permanen?')) { 
+                members = members.filter(m => m.id !== id); 
+                await saveDataToDB('members', members);
+                renderMemberTable(); 
+                renderStrukturOrganisasi(); 
+                renderDashboardStructure(); 
+                updateAllStats(); 
+                showToast('Anggota berhasil dihapus'); 
+            } 
+        }
+
+        function showDetail(id) { const member = members.find(m => m.id === id); if (!member) return; let ktpHtml = ''; if (member.ktpBase64) { if (member.ktpBase64.includes('pdf')) { ktpHtml = `<div class="mt-4"><label class="block text-sm font-medium mb-2 text-gray-500">File KTP</label><a href="${member.ktpBase64}" download="KTP_${member.nama}.pdf" class="text-blue-400 hover:underline text-sm">Download PDF</a></div>`; } else { ktpHtml = `<div class="mt-4"><label class="block text-sm font-medium mb-2 text-gray-500">Foto KTP</label><img src="${member.ktpBase64}" alt="KTP" class="rounded-lg border border-gray-700 max-h-48"></div>`; } } document.getElementById('modalContent').innerHTML = `<div class="text-center mb-6">${renderAvatar(member, 'w-20 h-20 text-2xl mb-4')}<h3 class="font-display text-xl font-bold text-white">${member.nama || '-'}</h3><span class="badge ${getBadgeClass(member.jabatan)} mt-2">${member.jabatan || '-'}</span></div><div class="space-y-3"><div class="flex justify-between py-3 border-b border-gray-800"><span class="text-gray-500">NIK</span><span class="font-mono text-sm">${member.nik || '-'}</span></div><div class="flex justify-between py-3 border-b border-gray-800"><span class="text-gray-500">Level</span><span>${member.level || '-'}</span></div><div class="flex justify-between py-3 border-b border-gray-800"><span class="text-gray-500">Wilayah</span><span>${member.wilayah || '-'}</span></div><div class="flex justify-between py-3 border-b border-gray-800"><span class="text-gray-500">No. HP</span><span>${member.hp || '-'}</span></div><div class="py-3 border-b border-gray-800"><span class="text-gray-500 block mb-2">Alamat</span><span class="text-sm text-gray-300">${member.alamat || '-'}</span></div>${ktpHtml}</div>`; document.getElementById('detailModal').classList.remove('hidden'); document.getElementById('detailModal').classList.add('flex'); }
+        function closeModal() { document.getElementById('detailModal').classList.add('hidden'); document.getElementById('detailModal').classList.remove('flex'); }
+
+        // ==================== 9. WILAYAH CRUD ====================
+        function renderWilayahLists() { 
+            document.getElementById('pacListContainer').innerHTML = pacList.map(p => `<div class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group"><span class="font-medium text-sm">${p.nama || '-'}</span><div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onclick="editWilayah(${p.id}, 'PAC')" class="p-1.5 hover:bg-amber-500/20 rounded-lg text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button><button onclick="deleteWilayah(${p.id}, 'PAC')" class="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div></div>`).join(''); 
+            const pacOptions = '<option value="">Semua PAC</option>' + pacList.map(p => `<option value="${p.id}">${p.nama}</option>`).join(''); 
+            document.getElementById('filterRantingPAC').innerHTML = pacOptions; 
+            document.getElementById('formWilayahPac').innerHTML = pacOptions; 
+            renderRantingList(); 
+        }
+        function renderRantingList() { const filterPacId = document.getElementById('filterRantingPAC').value; let filtered = filterPacId ? rantingList.filter(r => r.pacId === parseInt(filterPacId)) : rantingList; document.getElementById('rantingListContainer').innerHTML = filtered.map(r => { const pac = pacList.find(p => p.id === r.pacId); return `<div class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group"><div><span class="font-medium text-sm">${r.nama || '-'}</span><p class="text-xs text-gray-500">${pac ? pac.nama : '-'}</p></div><div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onclick="editWilayah(${r.id}, 'Ranting')" class="p-1.5 hover:bg-amber-500/20 rounded-lg text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button><button onclick="deleteWilayah(${r.id}, 'Ranting')" class="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div></div>`; }).join(''); const rantingOptions = '<option value="">Semua Ranting</option>' + rantingList.map(r => `<option value="${r.id}">${r.nama}</option>`).join(''); document.getElementById('filterAnakRantingRanting').innerHTML = rantingOptions; document.getElementById('formWilayahRanting').innerHTML = rantingOptions; renderAnakRantingList(); }
+        function renderAnakRantingList() { const filterRantingId = document.getElementById('filterAnakRantingRanting').value; let filtered = filterRantingId ? anakRantingList.filter(a => a.rantingId === parseInt(filterRantingId)) : anakRantingList; document.getElementById('anakRantingListContainer').innerHTML = filtered.map(a => { const ranting = rantingList.find(r => r.id === a.rantingId); return `<div class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group"><div><span class="font-medium text-sm">${a.nama || '-'}</span><p class="text-xs text-gray-500">${ranting ? ranting.nama : '-'}</p></div><div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onclick="editWilayah(${a.id}, 'Anak Ranting')" class="p-1.5 hover:bg-amber-500/20 rounded-lg text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button><button onclick="deleteWilayah(${a.id}, 'Anak Ranting')" class="p-1.5 hover:bg-red-500/20 rounded-lg text-red-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div></div>`; }).join(''); }
+        
+        function showAddWilayahModal(type) { document.getElementById('wilayahModalTitle').textContent = `Tambah ${type}`; document.getElementById('editWilayahId').value = ''; document.getElementById('editWilayahType').value = type; document.getElementById('formWilayahNama').value = ''; document.getElementById('parentPacSelect').classList.add('hidden'); document.getElementById('parentRantingSelect').classList.add('hidden'); if (type === 'Ranting') document.getElementById('parentPacSelect').classList.remove('hidden'); if (type === 'Anak Ranting') document.getElementById('parentRantingSelect').classList.remove('hidden'); document.getElementById('wilayahModal').classList.remove('hidden'); document.getElementById('wilayahModal').classList.add('flex'); }
+        function closeWilayahModal() { document.getElementById('wilayahModal').classList.add('hidden'); document.getElementById('wilayahModal').classList.remove('flex'); }
+        
+        function editWilayah(id, type) { let item = null, pacId = null, rantingId = null; if (type === 'PAC') item = pacList.find(p => p.id === id); else if (type === 'Ranting') { item = rantingList.find(r => r.id === id); pacId = item ? item.pacId : null; } else { item = anakRantingList.find(a => a.id === id); rantingId = item ? item.rantingId : null; } if (!item) return; document.getElementById('wilayahModalTitle').textContent = `Edit ${type}`; document.getElementById('editWilayahId').value = id; document.getElementById('editWilayahType').value = type; document.getElementById('formWilayahNama').value = item.nama || ''; document.getElementById('parentPacSelect').classList.add('hidden'); document.getElementById('parentRantingSelect').classList.add('hidden'); if (type === 'Ranting') { document.getElementById('parentPacSelect').classList.remove('hidden'); document.getElementById('formWilayahPac').value = pacId; } if (type === 'Anak Ranting') { document.getElementById('parentRantingSelect').classList.remove('hidden'); document.getElementById('formWilayahRanting').value = rantingId; } document.getElementById('wilayahModal').classList.remove('hidden'); document.getElementById('wilayahModal').classList.add('flex'); }
+        
+        async function deleteWilayah(id, type) { 
+            if (confirm(`Apakah Anda yakin ingin menghapus ${type} ini?`)) { 
+                if (type === 'PAC') { pacList = pacList.filter(p => p.id !== id); await saveDataToDB('pac', pacList); } else if (type === 'Ranting') { rantingList = rantingList.filter(r => r.id !== id); await saveDataToDB('ranting', rantingList); } else { anakRantingList = anakRantingList.filter(a => a.id !== id); await saveDataToDB('anak_ranting', anakRantingList); } 
+                renderWilayahLists(); 
+                updateAllStats(); 
+                renderStrukturOrganisasi(); 
+                showToast(`${type} berhasil dihapus`); 
+            } 
+        }
+        
+        async function handleWilayahFormSubmit(e) { 
+            e.preventDefault(); 
+            const editId = document.getElementById('editWilayahId').value; 
+            const type = document.getElementById('editWilayahType').value; 
+            const nama = document.getElementById('formWilayahNama').value; 
+            
+            if (type === 'PAC') { 
+                if (editId) { const index = pacList.findIndex(p => p.id === parseInt(editId)); if (index !== -1) pacList[index].nama = nama; } else { const newId = pacList.length > 0 ? Math.max(...pacList.map(p => p.id)) + 1 : 1; pacList.push({ id: newId, nama }); } 
+                await saveDataToDB('pac', pacList); 
+            } else if (type === 'Ranting') { 
+                const pacId = parseInt(document.getElementById('formWilayahPac').value); 
+                if (editId) { const index = rantingList.findIndex(r => r.id === parseInt(editId)); if (index !== -1) { rantingList[index].nama = nama; rantingList[index].pacId = pacId; } } else { const newId = rantingList.length > 0 ? Math.max(...rantingList.map(r => r.id)) + 1 : 1; rantingList.push({ id: newId, nama, pacId }); } 
+                await saveDataToDB('ranting', rantingList); 
+            } else if (type === 'Anak Ranting') { 
+                const rantingId = parseInt(document.getElementById('formWilayahRanting').value); 
+                if (editId) { const index = anakRantingList.findIndex(a => a.id === parseInt(editId)); if (index !== -1) { anakRantingList[index].nama = nama; anakRantingList[index].rantingId = rantingId; } } else { const newId = anakRantingList.length > 0 ? Math.max(...anakRantingList.map(a => a.id)) + 1 : 1; anakRantingList.push({ id: newId, nama, rantingId }); } 
+                await saveDataToDB('anak_ranting', anakRantingList); 
+            } 
+            
+            closeWilayahModal(); 
+            renderWilayahLists(); 
+            updateAllStats(); 
+            renderStrukturOrganisasi(); 
+            showToast(`${type} berhasil ${editId ? 'diupdate' : 'ditambahkan'}`); 
+        }
+
+        function updateWilayahOptions(prefix) { const level = document.getElementById(prefix + 'Level')?.value || ''; const wilayahSelect = document.getElementById(prefix + 'Wilayah'); if (!wilayahSelect) return; wilayahSelect.innerHTML = '<option value="">Pilih Wilayah</option>'; if (level === 'DPC') wilayahSelect.innerHTML += '<option value="Kab. Karanganyar">Kab. Karanganyar</option>'; else if (level === 'PAC') pacList.forEach(p => wilayahSelect.innerHTML += `<option value="${p.nama}">${p.nama}</option>`); else if (level === 'Ranting') rantingList.forEach(r => wilayahSelect.innerHTML += `<option value="${r.nama}">${r.nama}</option>`); else if (level === 'Anak Ranting') anakRantingList.forEach(a => wilayahSelect.innerHTML += `<option value="${a.nama}">${a.nama}</option>`); }
+
+        // ==================== 10. LAPORAN ====================
+        function renderReportTable() { const filterLevel = document.getElementById('reportLevel').value; const filterJabatan = document.getElementById('reportJabatan').value; const filterWilayah = document.getElementById('reportWilayah').value; updateWilayahOptions('report'); let filtered = members.filter(m => { const matchLevel = !filterLevel || m.level === filterLevel; const matchJabatan = !filterJabatan || getJabatanCategory(m.jabatan) === filterJabatan; const matchWilayah = !filterWilayah || m.wilayah === filterWilayah; return matchLevel && matchJabatan && matchWilayah; }); document.getElementById('reportTable').innerHTML = filtered.map((m, i) => `<tr class="border-b border-gray-800"><td class="py-4">${i + 1}</td><td class="py-4 font-mono text-sm">${m.nik || '-'}</td><td class="py-4">${m.nama || '-'}</td><td class="py-4"><span class="badge ${getBadgeClass(m.jabatan)}">${m.jabatan || '-'}</span></td><td class="py-4">${m.level || '-'}</td><td class="py-4">${m.wilayah || '-'}</td><td class="py-4">${m.hp || '-'}</td><td class="py-4 text-sm text-gray-400">${m.alamat || '-'}</td></tr>`).join(''); }
+        function printReport() { window.print(); }
+        function exportPDF() { const filterLevel = document.getElementById('reportLevel').value; const filterJabatan = document.getElementById('reportJabatan').value; const filterWilayahVal = document.getElementById('reportWilayah').value; let filtered = members.filter(m => { const matchLevel = !filterLevel || m.level === filterLevel; const matchJabatan = !filterJabatan || getJabatanCategory(m.jabatan) === filterJabatan; const matchWilayah = !filterWilayahVal || m.wilayah === filterWilayahVal; return matchLevel && matchJabatan && matchWilayah; }); if (typeof window.jspdf === 'undefined') { showToast('Library PDF tidak tersedia'); return; } const { jsPDF } = window.jspdf; const doc = new jsPDF('l', 'mm', 'a4'); doc.setFontSize(16); doc.setTextColor(153, 0, 0); doc.text('Laporan Data Keanggotaan DPC PDI Perjuangan', 14, 15); doc.setTextColor(0, 0, 0); doc.setFontSize(10); doc.text('Kabupaten Karanganyar - ' + new Date().toLocaleDateString('id-ID'), 14, 22); const tableData = filtered.map((m, i) => [i + 1, m.nik || '-', m.nama || '-', (m.jabatan || '').substring(0, 20), m.level || '-', m.wilayah || '-', m.hp || '-']); doc.autoTable({ head: [['No', 'NIK', 'Nama', 'Jabatan', 'Level', 'Wilayah', 'No. HP']], body: tableData, startY: 28, styles: { fontSize: 8 }, headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255] } }); doc.save('laporan_keanggotaan.pdf'); showToast('PDF berhasil diunduh'); }
+
+        // ==================== 11. EVENT LISTENERS ====================
+        function setupEventListeners() { 
+            document.getElementById('mobileMenuBtn').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('-translate-x-full')); 
+            document.getElementById('searchInput').addEventListener('input', renderMemberTable); 
+            document.getElementById('filterLevel').addEventListener('change', renderMemberTable); 
+            document.getElementById('filterJabatan').addEventListener('change', renderMemberTable); 
+            document.getElementById('reportLevel').addEventListener('change', renderReportTable); 
+            document.getElementById('reportJabatan').addEventListener('change', renderReportTable); 
+            document.getElementById('reportWilayah').addEventListener('change', renderReportTable); 
+            document.getElementById('memberForm').addEventListener('submit', handleMemberFormSubmit); 
+            document.getElementById('wilayahForm').addEventListener('submit', handleWilayahFormSubmit); 
+            
+            document.addEventListener('keydown', (e) => { 
+                if (e.key === 'Escape') { 
+                    closeModal(); 
+                    closeMemberModal(); 
+                    closeWilayahModal(); 
+                } 
+            }); 
+        }
+    </script>
+</body>
+</html>
